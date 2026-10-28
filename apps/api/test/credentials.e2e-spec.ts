@@ -2,6 +2,7 @@ import http from 'node:http';
 import https from 'node:https';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestApp, type TestApp } from './harness/index.js';
+import { MAX_CREDENTIAL_VALUE_LENGTH } from '../src/modules/providers/credentials/dto/set-credential.dto.js';
 
 describe('Provider credentials endpoints (e2e)', () => {
   let testApp: TestApp;
@@ -170,6 +171,43 @@ describe('Provider credentials endpoints (e2e)', () => {
       expect(res.body.details).toEqual(
         expect.arrayContaining([expect.stringContaining('property disallowedField should not exist')]),
       );
+    });
+
+    it('rejects an apiKey longer than the character limit with 400', async () => {
+      const provider = testApp.fixtures.createProvider();
+      const tooLong = 'x'.repeat(MAX_CREDENTIAL_VALUE_LENGTH + 1);
+
+      const res = await testApp
+        .request()
+        .put(`/api/v1/providers/${provider.id}/credential`)
+        .send({ apiKey: tooLong })
+        .expect(400);
+
+      expect(res.body.statusCode).toBe(400);
+      expect(res.body.code).toBe('BAD_REQUEST');
+      expect(res.body.details).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining(
+            `apiKey must not exceed ${MAX_CREDENTIAL_VALUE_LENGTH} characters`,
+          ),
+        ]),
+      );
+      // Never echo the oversized value back.
+      expect(JSON.stringify(res.body)).not.toContain(tooLong.slice(0, 64));
+    });
+
+    it('accepts an apiKey of exactly the permitted character count', async () => {
+      const provider = testApp.fixtures.createProvider();
+      const atLimit = 'y'.repeat(MAX_CREDENTIAL_VALUE_LENGTH);
+
+      const res = await testApp
+        .request()
+        .put(`/api/v1/providers/${provider.id}/credential`)
+        .send({ apiKey: atLimit })
+        .expect(200);
+
+      expect(res.body.configured).toBe(true);
+      expect(JSON.stringify(res.body)).not.toContain(atLimit.slice(0, 64));
     });
   });
 

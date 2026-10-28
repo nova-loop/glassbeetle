@@ -91,7 +91,9 @@ It must never return the plaintext API key, the ciphertext, or the cryptographic
 The plaintext secret is encrypted at rest using AES-256-GCM with a fresh random 96-bit nonce before storage; no plaintext is ever written to the database.
 
 No outbound network call is made to test or validate the key with the remote provider.
-Returns 200 with the credential metadata (safe masked preview and timestamps).`,
+Returns 200 with the credential metadata (safe masked preview and timestamps).
+
+The credential value is capped at 4096 characters — enough for real provider keys and long opaque tokens, but not for an accidental paste of a whole env file.`,
   })
   @ApiParam({
     name: 'providerId',
@@ -104,7 +106,7 @@ Returns 200 with the credential metadata (safe masked preview and timestamps).`,
   })
   @ApiBadRequestResponse({
     description:
-      'Request validation failed (e.g. empty or whitespace-only value)',
+      'Request validation failed (e.g. empty, whitespace-only, or longer than 4096 characters)',
     type: ApiErrorResponseDto,
   })
   @ApiNotFoundResponse({
